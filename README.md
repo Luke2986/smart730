@@ -76,6 +76,10 @@ npm run dev            # http://localhost:8080
 
 `npm test` esegue i test del motore di calcolo, `npm run build` crea la versione statica in `dist/`, pubblicabile su qualsiasi hosting di siti statici.
 
+### 5. Pubblicazione su Vercel
+
+Importa il repository su Vercel (preset Vite) e imposta le variabili `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`. `vercel.json` gestisce il routing dell'app e alcuni header di sicurezza. Poi, in Supabase → Authentication → URL Configuration, imposta il Site URL sul dominio Vercel.
+
 ## Aggiornare l'anno fiscale
 
 L'anno è definito in `src/utils/annoFiscale.ts`; scaglioni, detrazioni e soglie sono in `src/utils/taxCalculations.ts`, con i test in `src/utils/__tests__/`.
