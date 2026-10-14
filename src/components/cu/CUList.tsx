@@ -19,10 +19,10 @@ export function CUList({ cus, selectedId, aggregatedCu, onSelect, onRemove, onAd
     return (
       <GlassCard className="text-center p-8">
         <FileText className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-        <p className="text-sm text-muted-foreground mb-4">Nessun CU caricato</p>
+        <p className="text-sm text-muted-foreground mb-4">Nessuna CU inserita</p>
         <Button variant="gradient" onClick={onAddNew}>
           <Plus className="h-4 w-4 mr-2" />
-          Carica primo CU
+          Aggiungi la prima CU
         </Button>
       </GlassCard>
     );
@@ -33,9 +33,9 @@ export function CUList({ cus, selectedId, aggregatedCu, onSelect, onRemove, onAd
       {/* Header con totale */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="font-semibold">CU Caricati ({cus.length})</h3>
+          <h3 className="font-semibold">Le tue CU ({cus.length})</h3>
           <p className="text-xs text-muted-foreground">
-            Clicca per visualizzare dettagli
+            Tocca una CU per vedere i valori
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={onAddNew}>

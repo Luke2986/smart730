@@ -1,9 +1,8 @@
-import { AlertTriangle, Calendar, Euro, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, Calendar, Euro, Pencil, type LucideIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { GlassCard } from '@/components/ui/glass-card';
-import { Badge } from '@/components/ui/badge';
 import { useTaxState } from '@/contexts/Smart730Context';
 import { formatCurrency } from '@/utils/taxCalculations';
-import { SOGLIA_CONFIDENZA } from '@/utils/controlli';
 import { cn } from '@/lib/utils';
 
 interface Riga {
@@ -13,16 +12,13 @@ interface Riga {
   highlight?: boolean;
 }
 
-export function CUDataPreview() {
+export function CUDataPreview({ onModifica }: { onModifica: (id: string) => void }) {
   const { state, cuSelezionata: cu } = useTaxState();
   if (!cu) return null;
 
   const aggregata = cu.id === 'aggregated';
   const origini = aggregata ? state.cus : [cu];
   const avvisi = origini.flatMap((c) => (c.ui.avvisi ?? []).map((testo) => (aggregata ? `${c.nome}: ${testo}` : testo)));
-  const confidenze = origini.map((c) => c.ui.confidenza).filter((v): v is number => typeof v === 'number');
-  const confidenza = confidenze.length > 0 ? Math.min(...confidenze) : null;
-  const confidenzaBassa = confidenza !== null && confidenza < SOGLIA_CONFIDENZA;
 
   const { redditi, ritenute, detrazioni, cuneoFiscale } = cu.backend;
   const gruppi: Array<{ titolo: string; righe: Riga[] }> = [
@@ -61,28 +57,24 @@ export function CUDataPreview() {
           <div>
             <h3 className="font-semibold text-lg">{aggregata ? 'Totale delle CU' : cu.nome}</h3>
             <p className="text-sm text-muted-foreground">
-              Dati letti in automatico: confrontali con la CU prima di continuare
+              Valori usati nel calcolo: confrontali con la CU prima di continuare
             </p>
           </div>
-          {confidenza !== null && (
-            <Badge
-              variant="outline"
-              className={cn(confidenzaBassa ? 'bg-warning/10 text-warning border-warning/30' : 'bg-success/10 text-success border-success/20')}
-              title="Confidenza dichiarata dal modello AI che ha letto la CU"
-            >
-              Lettura AI {Math.round(confidenza)}%
-            </Badge>
+          {!aggregata && (
+            <Button variant="outline" size="sm" onClick={() => onModifica(cu.id)}>
+              <Pencil className="h-3 w-3 mr-1" />
+              Modifica
+            </Button>
           )}
         </div>
 
-        {(avvisi.length > 0 || confidenzaBassa) && (
+        {avvisi.length > 0 && (
           <div className="rounded-lg border border-warning/30 bg-warning/10 p-4 space-y-2">
             <div className="flex items-center gap-2 font-medium text-warning">
               <AlertTriangle className="h-4 w-4" />
               Da controllare sulla CU
             </div>
             <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
-              {confidenzaBassa && <li>La lettura automatica è incerta: ricontrolla tutti gli importi.</li>}
               {avvisi.map((avviso, i) => <li key={i}>{avviso}</li>)}
             </ul>
           </div>

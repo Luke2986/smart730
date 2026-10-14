@@ -178,7 +178,7 @@ export function AffittoForm({ redditoComplessivo, value, onSave }: AffittoFormPr
             €{detrazioneCalcolata.toFixed(2)}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Calcolata sul reddito complessivo delle CU caricate (€{redditoComplessivo.toLocaleString('it-IT', { useGrouping: 'always' })}).
+            Calcolata sul reddito complessivo delle CU inserite (€{redditoComplessivo.toLocaleString('it-IT', { useGrouping: 'always' })}).
           </p>
         </div>
 

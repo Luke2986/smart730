@@ -1,9 +1,6 @@
 import type { CUData, Smart730State } from '@/types/tax';
 import type { TaxCalculationResult } from './taxCalculations';
 
-/** Sotto questa confidenza (dichiarata dal modello AI) la lettura della CU va ricontrollata. */
-export const SOGLIA_CONFIDENZA = 80;
-
 export type Sezione = 'cu' | 'sts' | 'riepilogo';
 
 export interface Controllo {
@@ -18,21 +15,13 @@ export const cuDiLavoro = (cus: CUData[]) => cus.filter((cu) => cu.backend.reddi
 
 export function controlliDichiarazione(state: Smart730State, risultato: TaxCalculationResult): Controllo[] {
   if (state.cus.length === 0) {
-    return [{ livello: 'errore', testo: 'Nessuna CU caricata: senza redditi non c\'è niente da calcolare.', sezione: 'cu' }];
+    return [{ livello: 'errore', testo: 'Nessuna CU inserita: senza redditi non c\'è niente da calcolare.', sezione: 'cu' }];
   }
 
   const controlli: Controllo[] = [];
 
   for (const cu of state.cus) {
-    const { confidenza, avvisi = [] } = cu.ui;
-    if (typeof confidenza === 'number' && confidenza < SOGLIA_CONFIDENZA) {
-      controlli.push({
-        livello: 'avviso',
-        testo: `${cu.nome}: lettura automatica incerta (${Math.round(confidenza)}%), confronta gli importi con la CU.`,
-        sezione: 'cu'
-      });
-    }
-    for (const avviso of avvisi) {
+    for (const avviso of cu.ui.avvisi ?? []) {
       controlli.push({ livello: 'avviso', testo: `${cu.nome}: ${avviso}`, sezione: 'cu' });
     }
   }

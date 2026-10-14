@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle, CircleAlert, Info, Loader2, Printer } from "lucide-react";
+import { AlertTriangle, CheckCircle, CircleAlert, Info, Printer, ShieldCheck, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { InfoBox } from "@/components/ui/info-box";
@@ -15,13 +15,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useTaxState, type StatoSalvataggio } from "@/contexts/Smart730Context";
+import { useTaxState } from "@/contexts/Smart730Context";
 import { RiepilogoSection } from "@/components/dashboard/RiepilogoSection";
-import { CUUploadZone } from "@/components/cu/CUUploadZone";
+import { CUForm } from "@/components/cu/CUForm";
 import { CUDataPreview } from "@/components/cu/CUDataPreview";
 import { CUList } from "@/components/cu/CUList";
 import { GiorniLavoroForm } from "@/components/cu/GiorniLavoroForm";
-import { GaiaWidget } from "@/components/gaia/GaiaWidget";
 import { MedicalExpenseForm } from "@/components/expenses/MedicalExpenseForm";
 import { ExpensesSummary } from "@/components/expenses/ExpensesSummary";
 import { CSVUploadZone } from "@/components/expenses/CSVUploadZone";
@@ -30,8 +29,6 @@ import { DomicilioFiscaleForm } from "@/components/cu/DomicilioFiscaleForm";
 import { AffittoForm } from "@/components/expenses/AffittoForm";
 import { DocumentiDaConservare } from "@/components/documents/DocumentiDaConservare";
 import { Prospetto } from "@/components/presentazione/Prospetto";
-import { EmailOtpLogin } from "@/components/auth/EmailOtpLogin";
-import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { SpesaSanitaria } from "@/types/tax";
 import { CSVParseResult } from "@/utils/csvParser";
@@ -42,12 +39,11 @@ import { ANNO_DICHIARAZIONE, ANNO_IMPOSTA, SCADENZA_730, SCADENZA_REDDITI_PF, sc
 import { cn } from "@/lib/utils";
 
 type Screen =
-  | "welcome" | "profilo" | "cu" | "sts" | "mutuo" | "affitto"
+  | "welcome" | "cu" | "sts" | "mutuo" | "affitto"
   | "riepilogo" | "verifica" | "presentazione";
 
 const NAV: Array<{ screen: Screen; label: string }> = [
   { screen: "welcome", label: "Inizio" },
-  { screen: "profilo", label: "Profilo" },
   { screen: "cu", label: "CU" },
   { screen: "sts", label: "Spese sanitarie" },
   { screen: "mutuo", label: "Mutuo" },
@@ -75,14 +71,10 @@ const LIMITI = [
   "Scelte per l'8, il 5 e il 2 per mille: si indicano quando presenti la dichiarazione",
 ];
 
-const SCREENS_REQUIRING_LOGIN: Screen[] = ["cu"];
-
 const formatData = (data: Date) => data.toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
 
 export default function Smart730() {
   const [screen, setScreen] = useState<Screen>("welcome");
-  const { session, loading: authLoading } = useAuth();
-  const loginRequired = SCREENS_REQUIRING_LOGIN.includes(screen) && !session;
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
@@ -93,10 +85,13 @@ export default function Smart730() {
       <header className="sticky top-0 z-10 border-b border-glass-border bg-glass-bg backdrop-blur-xl print:hidden">
         <div className="mx-auto max-w-6xl px-4 py-4">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+            <div className="shrink-0 whitespace-nowrap text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
               Smart 730
             </div>
-            <SaveStatus />
+            <div className="flex items-center gap-1.5 text-right text-xs text-muted-foreground">
+              <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-success" />
+              <span>I dati restano in questa pagina</span>
+            </div>
           </div>
           <nav className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 text-xs" aria-label="Sezioni">
             {NAV.map((item) => (
@@ -119,10 +114,8 @@ export default function Smart730() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-8 space-y-8 print:max-w-none print:p-0">
-        {screen === "welcome" && <Welcome onNext={() => setScreen("profilo")} />}
-        {screen === "profilo" && <Profilo onNext={() => setScreen("cu")} />}
-        {loginRequired && <LoginRequired loading={authLoading} onLogin={() => setScreen("profilo")} />}
-        {screen === "cu" && !loginRequired && <CU onNext={() => setScreen("sts")} />}
+        {screen === "welcome" && <Welcome onNext={() => setScreen("cu")} />}
+        {screen === "cu" && <CU onNext={() => setScreen("sts")} />}
         {screen === "sts" && <TS onNext={() => setScreen("mutuo")} />}
         {screen === "mutuo" && <Mutuo onNext={() => setScreen("affitto")} />}
         {screen === "affitto" && <Affitto onNext={() => setScreen("riepilogo")} />}
@@ -130,54 +123,7 @@ export default function Smart730() {
         {screen === "verifica" && <Verifica onNext={() => setScreen("presentazione")} onGo={setScreen} />}
         {screen === "presentazione" && <Presentazione onGo={setScreen} />}
       </main>
-
-      {session && (
-        <div className="print:hidden">
-          <GaiaWidget key={session.user.id} />
-        </div>
-      )}
     </div>
-  );
-}
-
-const ETICHETTE_SALVATAGGIO: Record<StatoSalvataggio, string> = {
-  locale: "Non salvato: accedi per salvare",
-  caricamento: "Caricamento…",
-  salvataggio: "Salvataggio…",
-  salvato: "Salvato",
-  "errore-caricamento": "Dati non caricati",
-  "errore-salvataggio": "Non salvato",
-};
-
-function SaveStatus() {
-  const { salvataggio } = useTaxState();
-  const { stato, riprova } = salvataggio;
-  const errore = stato === "errore-caricamento" || stato === "errore-salvataggio";
-
-  return (
-    <div className="flex items-center gap-2 text-xs" role="status">
-      {(stato === "caricamento" || stato === "salvataggio") && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-      {stato === "salvato" && <CheckCircle className="h-3 w-3 text-success" />}
-      {errore && <CircleAlert className="h-3 w-3 text-destructive" />}
-      <span className={cn("text-muted-foreground", errore && "text-destructive")}>{ETICHETTE_SALVATAGGIO[stato]}</span>
-      {errore && (
-        <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={riprova}>
-          Riprova
-        </Button>
-      )}
-    </div>
-  );
-}
-
-function LoginRequired({ loading, onLogin }: { loading: boolean; onLogin: () => void }) {
-  if (loading) return null;
-
-  return (
-    <ScreenShell title="Accesso richiesto" subtitle="Per leggere la CU devi prima accedere con la tua email">
-      <Button onClick={onLogin} variant="gradient" size="lg" className="shadow-glow">
-        Accedi
-      </Button>
-    </ScreenShell>
   );
 }
 
@@ -194,7 +140,7 @@ function Welcome({ onNext }: { onNext: () => void }) {
             <div>
               <div className="mb-2 font-semibold text-primary-glow">Cosa fa</div>
               <ul className="list-disc pl-5 text-muted-foreground space-y-1">
-                <li>Legge le tue CU di lavoro dipendente e pensione</li>
+                <li>Legge le tue CU di lavoro dipendente e pensione, direttamente nel browser</li>
                 <li>Importa le spese sanitarie dal CSV del Sistema Tessera Sanitaria o le inserisci a mano</li>
                 <li>Calcola le detrazioni per interessi del mutuo prima casa (E7) e affitto (E71)</li>
                 <li>Ti dà un prospetto stampabile da confrontare con la precompilata o da portare al CAF</li>
@@ -206,6 +152,19 @@ function Welcome({ onNext }: { onNext: () => void }) {
                 <li>Non invia la dichiarazione e non firma nulla per te</li>
                 <li>Non gestisce familiari a carico, altri tipi di reddito e gli oneri diversi da quelli sopra</li>
               </ul>
+            </div>
+          </div>
+        </GlassCard>
+        <GlassCard>
+          <div className="flex items-start gap-3 text-sm">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-success" />
+            <div className="space-y-1">
+              <div className="font-semibold">Niente account, niente server</div>
+              <p className="text-muted-foreground">
+                Tutto avviene in questa pagina: i PDF e i CSV vengono letti dal tuo browser e non vengono inviati a
+                nessuno. Non salviamo nulla: quando chiudi o ricarichi la pagina i dati spariscono. Alla fine puoi
+                anche cancellarli con un tasto.
+              </p>
             </div>
           </div>
         </GlassCard>
@@ -221,99 +180,21 @@ function Welcome({ onNext }: { onNext: () => void }) {
   );
 }
 
-function Profilo({ onNext }: { onNext: () => void }) {
-  const { user, signOut } = useAuth();
-  const { eliminaDati } = useTaxState();
-  const [eliminando, setEliminando] = useState(false);
-
-  const elimina = async () => {
-    setEliminando(true);
-    try {
-      await eliminaDati();
-      toast({ title: "Dati eliminati", description: "La dichiarazione salvata e i file caricati sono stati cancellati." });
-    } catch {
-      toast({ variant: "destructive", title: "Eliminazione non riuscita", description: "Riprova tra poco." });
-    } finally {
-      setEliminando(false);
-    }
-  };
-
-  return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-      <div className="lg:col-span-2 space-y-6">
-        <SectionTitle title="Il tuo profilo" subtitle="Accedi con la tua email: ti inviamo un codice monouso" />
-        <GlassCard>
-          {user ? (
-            <div className="space-y-4">
-              <InfoBox label="Email" value={user.email ?? ''} />
-              <p className="text-sm text-muted-foreground">
-                I dati che inserisci vengono salvati nel tuo account e li ritrovi al prossimo accesso.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={onNext} variant="gradient">Continua</Button>
-                <Button onClick={() => signOut()} variant="glass">Esci</Button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <EmailOtpLogin />
-              <p className="text-xs text-muted-foreground">
-                Senza accesso puoi compilare mutuo, affitto e spese, ma i dati restano solo in questa pagina.
-              </p>
-            </div>
-          )}
-        </GlassCard>
-
-        {user && (
-          <GlassCard>
-            <div className="space-y-3">
-              <h3 className="font-semibold">Elimina i miei dati</h3>
-              <p className="text-sm text-muted-foreground">
-                Cancella le dichiarazioni salvate e gli eventuali file caricati. L'accesso con la tua email resta attivo.
-              </p>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" disabled={eliminando}>
-                    {eliminando ? "Eliminazione…" : "Elimina i miei dati"}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Eliminare tutti i dati?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      CU, spese, mutuo e affitto salvati verranno cancellati definitivamente. Non si può annullare.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Annulla</AlertDialogCancel>
-                    <AlertDialogAction onClick={elimina}>Elimina</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </GlassCard>
-        )}
-      </div>
-      <AsideNote
-        title="Perché lo chiediamo"
-        items={["Leggere la CU richiede un account", "Salviamo i dati solo per te, per riprenderli dopo"]}
-      />
-    </div>
-  );
-}
-
 function CU({ onNext }: { onNext: () => void }) {
   const { state, aggregatedCu, cuSelezionata, removeCU, selectCU, setGiorniLavoro } = useTaxState();
-  const [showUpload, setShowUpload] = useState(false);
+  // null: nessun form aperto; "nuova": aggiunta; altrimenti id della CU in modifica.
+  const [form, setForm] = useState<string | null>(null);
   const hasCUs = state.cus.length > 0;
   const cuLavoro = cuDiLavoro(state.cus);
+  const inModifica = form && form !== "nuova" ? state.cus.find((cu) => cu.id === form) : undefined;
+  const formAperto = !hasCUs || form !== null;
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="lg:col-span-2 space-y-6">
         <SectionTitle
           title="Certificazione Unica (CU)"
-          subtitle="Carica una CU per ogni datore di lavoro o ente pensionistico"
+          subtitle="Aggiungi una CU per ogni datore di lavoro o ente pensionistico"
         />
 
         {hasCUs && (
@@ -322,8 +203,11 @@ function CU({ onNext }: { onNext: () => void }) {
             selectedId={cuSelezionata?.id ?? null}
             aggregatedCu={aggregatedCu}
             onSelect={selectCU}
-            onRemove={removeCU}
-            onAddNew={() => setShowUpload(true)}
+            onRemove={(id) => {
+              removeCU(id);
+              if (form === id) setForm(null);
+            }}
+            onAddNew={() => setForm("nuova")}
           />
         )}
 
@@ -336,21 +220,29 @@ function CU({ onNext }: { onNext: () => void }) {
           />
         )}
 
-        {(!hasCUs || showUpload) && <CUUploadZone onUploadComplete={() => setShowUpload(false)} />}
+        {formAperto && (
+          <CUForm
+            key={form ?? "prima"}
+            cu={inModifica}
+            onSalvata={() => setForm(null)}
+            onAnnulla={hasCUs ? () => setForm(null) : undefined}
+          />
+        )}
 
-        {cuSelezionata && !showUpload && <CUDataPreview />}
+        {cuSelezionata && !formAperto && <CUDataPreview onModifica={setForm} />}
 
-        <Button onClick={onNext} variant="gradient" size="lg" disabled={!hasCUs} className="shadow-glow">
+        <Button onClick={onNext} variant="gradient" size="lg" disabled={!hasCUs || formAperto} className="shadow-glow">
           Continua
         </Button>
       </div>
 
       <AsideNote
-        title="Più CU"
+        title="Come funziona"
         items={[
-          "Se hai cambiato lavoro o hai anche una pensione, carica tutte le CU",
-          "Il calcolo usa il totale di tutte le CU",
-          "Tocca una CU per vedere i dati letti",
+          "Il PDF viene letto nel browser, senza intelligenza artificiale e senza inviarlo a nessuno",
+          "La lettura automatica può sbagliare: confronta ogni valore con la sezione \"Dati fiscali\" della CU",
+          "Se il PDF è una scansione, copia i valori a mano",
+          "Se hai cambiato lavoro o hai anche una pensione, aggiungi tutte le CU: il calcolo usa il totale",
         ]}
       />
     </div>
@@ -666,7 +558,13 @@ function ListaControlli({ titolo, controlli, onGo }: { titolo: string; controlli
 }
 
 function Presentazione({ onGo }: { onGo: (screen: Screen) => void }) {
-  const { aggregatedCu } = useTaxState();
+  const { aggregatedCu, cancellaTutto } = useTaxState();
+
+  const cancella = () => {
+    cancellaTutto();
+    onGo("welcome");
+    toast({ title: "Dati cancellati", description: "CU, spese, mutuo e affitto sono stati cancellati da questa pagina." });
+  };
 
   if (!aggregatedCu) {
     return (
@@ -739,6 +637,40 @@ function Presentazione({ onGo }: { onGo: (screen: Screen) => void }) {
             presentazione. Se non hai un sostituto d'imposta, il rimborso lo paga l'Agenzia delle Entrate e il debito si
             versa con F24.
           </p>
+        </GlassCard>
+
+        <GlassCard>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h3 className="font-semibold">Hai finito?</h3>
+              <p className="text-sm text-muted-foreground">
+                I dati non sono salvati da nessuna parte e spariscono chiudendo la pagina. Puoi cancellarli subito.
+              </p>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Cancella tutto
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Cancellare tutti i dati?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    CU, spese, mutuo e affitto inseriti verranno cancellati da questa pagina. Stampa o salva il prospetto
+                    prima, se ti serve.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annulla</AlertDialogCancel>
+                  <AlertDialogAction onClick={cancella} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Cancella tutto
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </GlassCard>
       </div>
     </div>

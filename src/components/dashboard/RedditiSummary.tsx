@@ -20,7 +20,7 @@ export function RedditiSummary({ data, onEdit }: RedditiSummaryProps) {
             Redditi
           </h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Certificazioni Uniche caricate
+            Certificazioni Uniche inserite
           </p>
         </div>
         {onEdit && (
@@ -35,7 +35,7 @@ export function RedditiSummary({ data, onEdit }: RedditiSummaryProps) {
         {data.cus.length === 0 ? (
           <div className="text-center py-6 text-muted-foreground">
             <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">Nessun CU caricato</p>
+            <p className="text-sm">Nessuna CU inserita</p>
           </div>
         ) : (
           data.cus.map((cu) => (

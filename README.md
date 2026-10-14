@@ -1,10 +1,12 @@
 # Smart730
 
-Web app open source per stimare il **730/2026** (redditi 2025). Legge le Certificazioni Uniche, importa le spese sanitarie e calcola il risultato con le regole del modello. Alla fine produce un prospetto da stampare, da confrontare con la precompilata o da portare al CAF.
+Web app open source per stimare il **730/2026** (redditi 2025). Legge le Certificazioni Uniche e le spese sanitarie e calcola il risultato con le regole del modello. Alla fine produce un prospetto da stampare, da confrontare con la precompilata o da portare al CAF.
+
+Funziona tutta nel browser: niente account, niente server, niente database.
 
 **Cosa fa**
 
-- Legge le CU di lavoro dipendente e pensione (estrazione con AI) e segnala i valori da ricontrollare.
+- Legge il PDF delle CU di lavoro dipendente e pensione e compila i valori dei punti della sezione "Dati fiscali". I valori si controllano e si correggono in un form, oppure si inseriscono a mano.
 - Importa le spese sanitarie dal CSV del Sistema Tessera Sanitaria o le fa inserire a mano.
 - Calcola le detrazioni per spese sanitarie e veterinarie (E1, E8-E10), interessi del mutuo prima casa (E7) e affitto dell'abitazione principale (E71).
 - Calcola IRPEF, detrazioni, cuneo fiscale, addizionali regionale e comunale dal domicilio fiscale, saldo e acconti.
@@ -19,70 +21,34 @@ Non è un servizio dell'Agenzia delle Entrate. Per i casi dubbi rivolgiti a un C
 
 ## Privacy
 
-Il repository non contiene chiavi né dati: chi installa l'app usa il proprio progetto Supabase e la propria chiave AI.
+- I PDF delle CU e i CSV delle spese vengono letti nel browser ([pdf.js](https://mozilla.github.io/pdf.js/) per i PDF) e non vengono caricati da nessuna parte.
+- I dati restano solo nella memoria della pagina: niente cookie, localStorage o database. Chiudendo o ricaricando la pagina spariscono, e il tasto "Cancella tutto" nell'ultima schermata li cancella subito.
+- Nessun sistema di analytics o tracciamento. Sul deploy Vercel la Content Security Policy (`connect-src 'self'`) impedisce alla pagina di inviare dati ad altri siti.
 
-- **Senza accesso** si possono compilare spese, mutuo e affitto: i dati restano nella pagina e spariscono quando la chiudi.
-- **Con accesso** (email e codice monouso) la dichiarazione viene salvata nel database Supabase dell'installazione, visibile solo all'utente (policy RLS). "Elimina i miei dati" nel profilo cancella tutto.
-- **CU**: il PDF viene caricato in una cartella privata, il testo viene inviato al provider AI configurato per l'estrazione e il file viene cancellato subito dopo, anche in caso di errore.
-- **CSV delle spese**: viene letto nel browser, non viene caricato sul server.
-- **Chat GAIA**: i messaggi vengono inviati al provider AI e non vengono salvati.
-- Nessun sistema di analytics o tracciamento.
+## Lettura della CU
 
-## Installazione
+Il PDF viene letto senza intelligenza artificiale: l'app estrae il testo con pdf.js e associa ogni importo al numero del punto più vicino (in alto o a sinistra nel riquadro). I codici catastali prima dei dati fiscali danno il domicilio fiscale.
 
-Servono Node.js 20+, un progetto [Supabase](https://supabase.com) (va bene il piano gratuito) e una chiave di un provider AI con API compatibile OpenAI (default: Google Gemini).
+I modelli di CU dei diversi sostituti d'imposta non sono tutti uguali e la lettura può sbagliare o saltare dei valori: il form segna i campi letti dal PDF e vanno confrontati con la CU. I PDF scansionati (immagini) non hanno testo e si compilano a mano.
 
-### 1. Database
+La logica è in `src/utils/cuPdf.ts` (lettura del testo) e `src/utils/cuDaPunti.ts` (dai punti ai dati usati nel calcolo), con i test in `src/utils/__tests__/`.
 
-```bash
-npx supabase login
-npx supabase link --project-ref <project-ref>
-npx supabase db push
-```
+## Sviluppo
 
-`db push` applica `supabase/migrations/`: tabella delle dichiarazioni con RLS, bucket privato per le CU, knowledge base di GAIA.
-
-### 2. Edge Functions
+Serve Node.js 20+.
 
 ```bash
-npx supabase functions deploy parse-cu-pdf
-npx supabase functions deploy gaia-chat
-npx supabase secrets set AI_API_KEY=<la-tua-chiave>
-```
-
-| Secret | Obbligatorio | Default |
-|--------|--------------|---------|
-| `AI_API_KEY` | sì | — |
-| `AI_BASE_URL` | no | `https://generativelanguage.googleapis.com/v1beta/openai` (Gemini) |
-| `AI_MODEL` | no | `gemini-2.5-flash` |
-
-Per un altro provider cambia base URL e modello, ad esempio OpenAI: `AI_BASE_URL=https://api.openai.com/v1`.
-
-### 3. Accesso con codice email
-
-Dashboard → Authentication:
-
-- **Email Templates**: nei template *Confirm signup* e *Magic Link* inserisci il codice con `{{ .Token }}` (modello in `supabase/templates/otp.html`).
-- **URL Configuration**: Site URL = indirizzo dell'app (in sviluppo `http://localhost:8080`).
-- Lo SMTP integrato di Supabase invia poche email l'ora e solo agli indirizzi del team del progetto: in produzione configura uno SMTP tuo.
-
-### 4. App
-
-```bash
-cp .env.example .env   # URL e publishable key del progetto Supabase
 npm install
-npm run dev            # http://localhost:8080
+npm run dev     # http://localhost:8080
+npm test        # test del motore di calcolo e della lettura della CU
+npm run build   # versione statica in dist/
 ```
 
-`npm test` esegue i test del motore di calcolo, `npm run build` crea la versione statica in `dist/`, pubblicabile su qualsiasi hosting di siti statici.
-
-### 5. Pubblicazione su Vercel
-
-Importa il repository su Vercel (preset Vite) e imposta le variabili `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`. `vercel.json` gestisce il routing dell'app e alcuni header di sicurezza. Poi, in Supabase → Authentication → URL Configuration, imposta il Site URL sul dominio Vercel.
+Non servono variabili d'ambiente né chiavi. `dist/` si pubblica su qualsiasi hosting di siti statici: su Vercel basta importare il repository (preset Vite), `vercel.json` gestisce il routing e gli header di sicurezza.
 
 ## Aggiornare l'anno fiscale
 
-L'anno è definito in `src/utils/annoFiscale.ts`; scaglioni, detrazioni e soglie sono in `src/utils/taxCalculations.ts`, con i test in `src/utils/__tests__/`.
+L'anno è definito in `src/utils/annoFiscale.ts`; scaglioni, detrazioni e soglie sono in `src/utils/taxCalculations.ts`, i punti della CU in `src/utils/cuDaPunti.ts`.
 
 Aliquote delle addizionali dell'anno d'imposta:
 

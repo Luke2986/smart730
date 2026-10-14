@@ -1,4 +1,5 @@
 // TypeScript schemas for Smart730 tax system
+import type { PuntiCU } from '@/utils/cuDaPunti';
 
 export interface CUBackendData {
   redditi: {
@@ -63,8 +64,6 @@ export interface DomicilioFiscale {
 export interface CUUIData {
   redditiCU: number;              // Somma per dashboard
   statoCalcolo: 'idle' | 'in_progress' | 'completed' | 'error';
-  /** Confidenza dichiarata dal modello AI che ha letto la CU, da 0 a 100. */
-  confidenza?: number;
   /** Valori mancanti o incoerenti segnalati durante la lettura della CU. */
   avvisi?: string[];
 }
@@ -73,6 +72,8 @@ export interface CUData {
   id: string;              // ID univoco del CU
   nome: string;            // Nome visualizzato (es: "CU Azienda X")
   dataCaricamento: Date;   // Data di caricamento
+  /** Punti inseriti o letti dal PDF: servono a modificare la CU. */
+  punti?: PuntiCU;
   backend: CUBackendData;
   ui: CUUIData;
 }
@@ -91,8 +92,6 @@ export interface SpesaSanitaria extends Spesa {
   tipo: 'sanitarie';
   sottotipo: 'mediche' | 'veterinarie';
   franchigia?: number; // 129,11€ per mediche
-  fileUrl?: string; // Link al file caricato su Supabase Storage
-  fileName?: string;
 }
 
 /** Rigo E71: la detrazione dipende dal reddito complessivo e la calcola il motore. */
